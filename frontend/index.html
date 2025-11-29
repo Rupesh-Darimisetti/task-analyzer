@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Analyzer - Priority Management</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📋 Task Analyzer</h1>
+            <p>Smart task prioritization based on urgency, importance, and effort</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Side: Input Area -->
+            <section class="left-panel">
+                <div class="panel-header">
+                    <h2>Input Tasks</h2>
+                </div>
+
+                <div class="input-section">
+                    <h3>Paste JSON Tasks</h3>
+                    <textarea id="taskInput" class="task-textarea" placeholder='[
+  {
+    "title": "Project Report",
+    "due_date": "2025-12-01",
+    "importance": 8,
+    "estimated_hours": 3,
+    "dependencies": []
+  },
+  {
+    "title": "Email Client",
+    "due_date": "2025-12-05",
+    "importance": 5,
+    "estimated_hours": 1,
+    "dependencies": []
+  }
+]'></textarea>
+                    <small>Enter tasks as JSON array. Each task should have: title, due_date (YYYY-MM-DD), importance
+                        (1-10), estimated_hours, and dependencies (array of task IDs).</small>
+                </div>
+
+                <div class="form-section">
+                    <h3>Or Add Individual Task</h3>
+                    <form id="taskForm" class="task-form">
+                        <div class="form-group">
+                            <label for="title">Task Title</label>
+                            <input type="text" id="title" name="title" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dueDate">Due Date</label>
+                            <input type="date" id="dueDate" name="dueDate" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="importance">Importance (1-10)</label>
+                            <input type="number" id="importance" name="importance" min="1" max="10" value="5" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="estimatedHours">Estimated Hours</label>
+                            <input type="number" id="estimatedHours" name="estimatedHours" min="0.5" step="0.5"
+                                value="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dependencies">Dependencies (comma-separated IDs)</label>
+                            <input type="text" id="dependencies" name="dependencies" placeholder="e.g., 1,2,3">
+                        </div>
+
+                        <button type="submit" class="btn btn-secondary">Add Task</button>
+                    </form>
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="controls">
+                    <button id="analyzeBtn" class="btn btn-primary">🚀 Analyze Tasks</button>
+                    <button id="suggestBtn" class="btn btn-success">💡 Get Suggestions</button>
+                </div>
+
+                <!-- Sorting Strategy Dropdown -->
+                <div class="sorting-strategy">
+                    <label for="sortingStrategy">Sorting Strategy:</label>
+                    <select id="sortingStrategy" class="select">
+                        <option value="priority">Priority Score (Default)</option>
+                        <option value="deadline">Deadline Driven (Earliest First)</option>
+                        <option value="quickWins">Fastest Wins (Shortest Duration)</option>
+                        <option value="importance">Importance First (Highest First)</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Right Side: Results Display -->
+            <section class="right-panel">
+                <div class="panel-header">
+                    <h2>Results</h2>
+                    <span id="resultCount" class="result-count"></span>
+                </div>
+
+                <!-- Error Display -->
+                <div id="errorContainer" class="error-container" style="display: none;">
+                    <div class="error-message">
+                        <strong>Error:</strong>
+                        <p id="errorText"></p>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingContainer" class="loading-container" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Analyzing tasks...</p>
+                </div>
+
+                <!-- Results Display -->
+                <div id="resultsContainer" class="results-container">
+                    <div class="no-results">
+                        <p>👈 Paste tasks or click "Analyze Tasks" to see results here</p>
+                    </div>
+                </div>
+
+                <!-- Explanation Panel (for suggestions) -->
+                <div id="explanationPanel" class="explanation-panel" style="display: none;">
+                    <h3>Today's Top Recommendations</h3>
+                    <div id="explanationContent" class="explanation-content"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="scripts.js"></script>
+</body>
+
+</html>

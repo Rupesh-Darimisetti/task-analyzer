@@ -37,6 +37,13 @@ def analyze(request):
             ...
         ]
     }
+    
+    Edge cases handled:
+    - Missing importance: defaults to 5
+    - Missing estimated_hours: defaults to 1
+    - Past due dates (e.g., 1990): treated as overdue (+100 urgency)
+    - Invalid dates: returns 400 error
+    - Non-array tasks: returns 400 error
     """
     try:
         tasks_data = request.data.get('tasks', [])
@@ -47,19 +54,51 @@ def analyze(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        if len(tasks_data) == 0:
+            return Response(
+                {"error": "Tasks list is empty. Please provide at least one task."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Score each task
         scored_tasks = []
-        for task in tasks_data:
-            # Convert due_date string to date object if needed
-            if isinstance(task.get('due_date'), str):
-                task['due_date'] = date.fromisoformat(task['due_date'])
+        for idx, task in enumerate(tasks_data):
+            try:
+                # Validate required fields
+                if not task.get('title'):
+                    task['title'] = f'Untitled Task {idx + 1}'
+                
+                # Convert due_date string to date object if needed
+                if isinstance(task.get('due_date'), str):
+                    task['due_date'] = date.fromisoformat(task['due_date'])
+                
+                # Apply defaults for missing fields
+                if 'importance' not in task:
+                    task['importance'] = 5
+                if 'estimated_hours' not in task:
+                    task['estimated_hours'] = 1
+                if 'dependencies' not in task:
+                    task['dependencies'] = []
+                
+                score = calculate_task_score(task)
+                task['score'] = score
+                scored_tasks.append(task)
             
-            score = calculate_task_score(task)
-            task['score'] = score
-            scored_tasks.append(task)
+            except ValueError as e:
+                # Handle invalid date format
+                return Response(
+                    {"error": f"Task {idx + 1}: Invalid date format. Use YYYY-MM-DD format. Details: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Exception as e:
+                # Handle other parsing errors
+                return Response(
+                    {"error": f"Task {idx + 1}: Error processing task. Details: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Sort by score (highest first)
-        sorted_tasks = sorted(scored_tasks, key=lambda x: x['score'], reverse=True)
+        sorted_tasks = sorted(scored_tasks, key=lambda x: x.get('score', 0), reverse=True)
         
         return Response({
             "count": len(sorted_tasks),
@@ -68,8 +107,125 @@ def analyze(request):
     
     except Exception as e:
         return Response(
-            {"error": str(e)},
+            {"error": f"Server error: {str(e)}"},
             status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+def save_task(request):
+    """
+    Endpoint: /save/
+    
+    Saves a single task to the database.
+    
+    Expected request body:
+    {
+        "title": "Task title",
+        "due_date": "2025-12-01",
+        "importance": 8,
+        "estimated_hours": 2,
+        "dependencies": []
+    }
+    """
+    try:
+        serializer = TaskSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to save task: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+def save_tasks_from_analysis(request):
+    """
+    Endpoint: /save-analysis/
+    
+    Saves multiple tasks from analysis to the database.
+    
+    Expected request body:
+    {
+        "tasks": [
+            {
+                "title": "Task title",
+                "due_date": "2025-12-01",
+                "importance": 8,
+                "estimated_hours": 2,
+                "dependencies": []
+            },
+            ...
+        ]
+    }
+    """
+    try:
+        tasks_data = request.data.get('tasks', [])
+        
+        if not isinstance(tasks_data, list):
+            return Response(
+                {"error": "'tasks' must be a list"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        saved_tasks = []
+        errors = []
+        
+        for idx, task_data in enumerate(tasks_data):
+            try:
+                # Remove score field if present (not a model field)
+                if 'score' in task_data:
+                    del task_data['score']
+                
+                serializer = TaskSerializer(data=task_data)
+                if serializer.is_valid():
+                    saved_task = serializer.save()
+                    saved_tasks.append(serializer.data)
+                else:
+                    errors.append({"task_index": idx, "errors": serializer.errors})
+            except Exception as e:
+                errors.append({"task_index": idx, "error": str(e)})
+        
+        return Response({
+            "saved": len(saved_tasks),
+            "failed": len(errors),
+            "saved_tasks": saved_tasks,
+            "errors": errors if errors else None
+        }, status=status.HTTP_200_OK if saved_tasks else status.HTTP_400_BAD_REQUEST)
+    
+    except Exception as e:
+        return Response(
+            {"error": f"Server error: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['DELETE'])
+def delete_task(request, task_id):
+    """
+    Endpoint: /delete/<task_id>/
+    
+    Deletes a task from the database.
+    """
+    try:
+        task = Task.objects.get(id=task_id)
+        task.delete()
+        return Response(
+            {"message": f"Task {task_id} deleted successfully"},
+            status=status.HTTP_200_OK
+        )
+    except Task.DoesNotExist:
+        return Response(
+            {"error": f"Task {task_id} not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to delete task: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
