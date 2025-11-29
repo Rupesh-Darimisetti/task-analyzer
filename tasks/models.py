@@ -1,16 +1,14 @@
 from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Create your models here.
-class Task(models):
-    DEPENDENCIES = {}
-    title = models.CharField(max_length = 200)
+class Task(models.Model):
+    title = models.CharField(max_length=200)
     due_date = models.DateField()
-    estimated_hours = models.IntegerField()
-    importance = models.IntegerField(
-        validators=[
-            MinValueValidator(1, message="Value must be at least 1."),
-            MaxValueValidator(10, message="Value cannot exceed 10.")
-        ]
-    )
-    dependencies = models.CharField(max_length=1,choices=DEPENDENCIES)
+    importance = models.IntegerField(default=5) # Scale 1-10
+    estimated_hours = models.IntegerField(default=1)
+
+    # Simple JSON field to store dependency IDs [1, 2, 3]
+    dependencies = models.JSONField(default=list, blank=True)
+
+    def __str__(self):
+        return self.title
